@@ -2,12 +2,12 @@
   "name": "BarkleGPS - Pet Grooming Route Planner",
   "short_name": "BarkleGPS",
   "description": "Optimize your daily pet grooming routes from Kidd's Beach, Eastern Cape",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#667eea",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "./",
   "lang": "en-US",
   "categories": ["business", "navigation", "productivity"],
   "icons": [
@@ -34,7 +34,7 @@
       "name": "Add Appointment",
       "short_name": "Add",
       "description": "Quickly add a new grooming appointment",
-      "url": "/?action=add",
+      "url": "./?action=add",
       "icons": [
         {
           "src": "icon-192.png",
@@ -46,7 +46,7 @@
       "name": "Optimize Route",
       "short_name": "Optimize",
       "description": "Optimize today's route",
-      "url": "/?action=optimize",
+      "url": "./?action=optimize",
       "icons": [
         {
           "src": "icon-192.png",
