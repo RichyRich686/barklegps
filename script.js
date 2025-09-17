@@ -6,13 +6,14 @@ let appointments = [];
 let homeLocation = "298 Milkwood Lane, Kidd's Beach, Eastern Cape, South Africa";
 let currentLocation = null;
 let locationStatus = 'unknown';
+let optimizedRoute = null;
 
 function initMap() {
-    const kiddsBeach = { lat: -33.2739, lng: 27.0486 };
-    
+    const southAfrica = { lat: -28.8, lng: 24.8 };
+
     map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 11,
-        center: kiddsBeach,
+        zoom: 5,
+        center: southAfrica,
         mapTypeId: google.maps.MapTypeId.ROADMAP
     });
 
@@ -55,15 +56,6 @@ function addAppointment() {
                 lng: location.geometry.location.lng()
             };
 
-            const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                new google.maps.LatLng(-33.2739, 27.0486),
-                new google.maps.LatLng(appointment.lat, appointment.lng)
-            );
-
-            if (distance > 100000) {
-                alert('This address is more than 100km from Kidd\'s Beach. Please enter an address within the service area.');
-                return;
-            }
 
             appointments.push(appointment);
             addressInput.value = '';
@@ -161,6 +153,9 @@ function showSingleAppointment(appointment) {
             document.getElementById('total-time').textContent = leg.duration.text;
             document.getElementById('total-distance').textContent = leg.distance.text;
             document.getElementById('route-summary').style.display = 'block';
+
+            optimizedRoute = result;
+            document.getElementById('google-maps-btn').style.display = 'block';
         }
     });
 }
@@ -214,6 +209,9 @@ function optimizeRoute() {
             document.getElementById('total-time').textContent = timeText;
             document.getElementById('total-distance').textContent = `${distanceKm} km`;
             document.getElementById('route-summary').style.display = 'block';
+
+            optimizedRoute = result;
+            document.getElementById('google-maps-btn').style.display = 'block';
             
             const optimizedOrder = result.routes[0].waypoint_order;
             const reorderedAppointments = optimizedOrder.map(index => appointments[index]);
@@ -226,14 +224,51 @@ function optimizeRoute() {
     });
 }
 
+function openInGoogleMaps() {
+    if (!optimizedRoute || appointments.length === 0) {
+        alert('Please optimize a route first');
+        return;
+    }
+
+    const startCoords = getStartLocation();
+    let url = `https://www.google.com/maps/dir/`;
+
+    if (currentLocation && locationStatus === 'found') {
+        url += `${currentLocation.lat},${currentLocation.lng}/`;
+    } else {
+        url += `${encodeURIComponent(homeLocation)}/`;
+    }
+
+    if (appointments.length === 1) {
+        url += `${appointments[0].lat},${appointments[0].lng}`;
+    } else {
+        const waypoints = optimizedRoute.routes[0].waypoint_order.map(index => appointments[index]);
+        waypoints.forEach(apt => {
+            url += `${apt.lat},${apt.lng}/`;
+        });
+
+        if (currentLocation && locationStatus === 'found') {
+            url += `${currentLocation.lat},${currentLocation.lng}`;
+        } else {
+            url += `${encodeURIComponent(homeLocation)}`;
+        }
+    }
+
+    url += '?travelmode=driving';
+    window.open(url, '_blank');
+}
+
 function clearAllAppointments() {
     if (appointments.length === 0) return;
-    
+
     if (confirm('Are you sure you want to clear all appointments?')) {
         appointments = [];
+        optimizedRoute = null;
         updateAppointmentList();
         saveAppointments();
         directionsRenderer.setDirections({ routes: [] });
+        document.getElementById('google-maps-btn').style.display = 'none';
+        document.getElementById('route-summary').style.display = 'none';
     }
 }
 
