@@ -4,6 +4,7 @@ let directionsRenderer;
 let geocoder;
 let appointments = [];
 let homeLocation = "298 Milkwood Lane, Kidd's Beach, Eastern Cape, South Africa";
+let homeAppointment = null;
 let currentLocation = null;
 let locationStatus = 'unknown';
 let optimizedRoute = null;
@@ -77,12 +78,14 @@ function addAppointment() {
         appointments.push(appointment);
         addressInput.value = '';
         selectedPlace = null;
+
+        // Auto-create home appointment if this is the first client appointment
+        if (appointments.length === 1 && !homeAppointment) {
+            createHomeAppointment();
+        }
+
         updateAppointmentList();
         saveAppointments();
-
-        if (appointments.length === 1) {
-            showSingleAppointment(appointment);
-        }
     } else {
         geocoder.geocode({ address: address }, (results, status) => {
             if (status === 'OK') {
@@ -97,12 +100,14 @@ function addAppointment() {
                 appointments.push(appointment);
                 addressInput.value = '';
                 selectedPlace = null;
+
+                // Auto-create home appointment if this is the first client appointment
+                if (appointments.length === 1 && !homeAppointment) {
+                    createHomeAppointment();
+                }
+
                 updateAppointmentList();
                 saveAppointments();
-
-                if (appointments.length === 1) {
-                    showSingleAppointment(appointment);
-                }
             } else {
                 alert('Could not find this address. Please check the address and try again.');
             }
@@ -251,22 +256,30 @@ function optimizeRoute() {
         return;
     }
 
-    if (appointments.length === 1) {
+    const startCoords = getStartLocation();
+    const routeOptions = getRouteOptions();
+
+    // If only client appointments, no optimization needed
+    if (appointments.length === 1 && !homeAppointment) {
         showSingleAppointment(appointments[0]);
         return;
     }
 
-    const startCoords = getStartLocation();
-    const routeOptions = getRouteOptions();
-
+    // Build waypoints from client appointments
     const waypoints = appointments.map(apt => ({
         location: new google.maps.LatLng(apt.lat, apt.lng),
         stopover: true
     }));
 
+    // Determine destination
+    let destination = startCoords; // Default: return to start
+    if (homeAppointment) {
+        destination = new google.maps.LatLng(homeAppointment.lat, homeAppointment.lng);
+    }
+
     const request = {
         origin: startCoords,
-        destination: startCoords,
+        destination: destination,
         waypoints: waypoints,
         ...routeOptions
     };
@@ -382,10 +395,11 @@ function openInWaze() {
 }
 
 function clearAllAppointments() {
-    if (appointments.length === 0) return;
+    if (appointments.length === 0 && !homeAppointment) return;
 
     if (confirm('Are you sure you want to clear all appointments?')) {
         appointments = [];
+        homeAppointment = null;
         optimizedRoute = null;
         updateAppointmentList();
         saveAppointments();
