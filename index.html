@@ -246,6 +246,15 @@
                 <div style="margin-bottom: 15px;">
                     <div id="location-status" style="font-size: 14px; color: #666;">📍 Location: Getting...</div>
                 </div>
+                <div class="input-group">
+                    <label for="route-type">Route Optimization</label>
+                    <select id="route-type" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        <option value="shortest">🛣️ Shortest Distance (Fuel Efficient)</option>
+                        <option value="fastest">⚡ Fastest Time</option>
+                        <option value="avoid-traffic">🚦 Avoid Heavy Traffic</option>
+                        <option value="balanced">⚖️ Balanced (Time + Distance)</option>
+                    </select>
+                </div>
                 <div class="route-summary" id="route-summary" style="display: none;">
                     <div><strong>Optimized Route Summary</strong></div>
                     <div class="route-stats">
@@ -260,7 +269,10 @@
                     </div>
                 </div>
                 <button class="btn" onclick="optimizeRoute()" id="optimize-btn">Optimize Route</button>
-                <button class="btn" onclick="openInGoogleMaps()" id="google-maps-btn" style="background: #34a853; display: none;">Open in Google Maps</button>
+                <div style="display: none;" id="navigation-buttons">
+                    <button class="btn" onclick="openInGoogleMaps()" style="background: #34a853;">📍 Open in Google Maps</button>
+                    <button class="btn" onclick="openInWaze()" style="background: #33ccff;">🚗 Open in Waze</button>
+                </div>
                 <button class="btn btn-danger" onclick="clearAllAppointments()">Clear All</button>
             </div>
 

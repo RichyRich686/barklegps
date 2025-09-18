@@ -7,6 +7,8 @@ let homeLocation = "298 Milkwood Lane, Kidd's Beach, Eastern Cape, South Africa"
 let currentLocation = null;
 let locationStatus = 'unknown';
 let optimizedRoute = null;
+let autocomplete = null;
+let selectedPlace = null;
 
 function initMap() {
     const southAfrica = { lat: -28.8, lng: 24.8 };
@@ -26,10 +28,11 @@ function initMap() {
 
     geocoder = new google.maps.Geocoder();
 
+    setupAutocomplete();
     getCurrentLocation();
     loadAppointments();
     updateAppointmentList();
-    
+
     document.getElementById('address-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             addAppointment();
@@ -37,38 +40,74 @@ function initMap() {
     });
 }
 
+function setupAutocomplete() {
+    const addressInput = document.getElementById('address-input');
+
+    autocomplete = new google.maps.places.Autocomplete(addressInput, {
+        componentRestrictions: { country: 'za' },
+        fields: ['formatted_address', 'geometry', 'name'],
+        types: ['establishment', 'geocode']
+    });
+
+    autocomplete.addListener('place_changed', () => {
+        selectedPlace = autocomplete.getPlace();
+        if (!selectedPlace.geometry) {
+            selectedPlace = null;
+        }
+    });
+}
+
 function addAppointment() {
     const addressInput = document.getElementById('address-input');
     const address = addressInput.value.trim();
-    
+
     if (!address) {
         alert('Please enter an address');
         return;
     }
 
-    geocoder.geocode({ address: address }, (results, status) => {
-        if (status === 'OK') {
-            const location = results[0];
-            const appointment = {
-                id: Date.now(),
-                address: location.formatted_address,
-                lat: location.geometry.location.lat(),
-                lng: location.geometry.location.lng()
-            };
+    if (selectedPlace && selectedPlace.geometry) {
+        const appointment = {
+            id: Date.now(),
+            address: selectedPlace.formatted_address,
+            lat: selectedPlace.geometry.location.lat(),
+            lng: selectedPlace.geometry.location.lng()
+        };
 
+        appointments.push(appointment);
+        addressInput.value = '';
+        selectedPlace = null;
+        updateAppointmentList();
+        saveAppointments();
 
-            appointments.push(appointment);
-            addressInput.value = '';
-            updateAppointmentList();
-            saveAppointments();
-            
-            if (appointments.length === 1) {
-                showSingleAppointment(appointment);
-            }
-        } else {
-            alert('Could not find this address. Please check the address and try again.');
+        if (appointments.length === 1) {
+            showSingleAppointment(appointment);
         }
-    });
+    } else {
+        geocoder.geocode({ address: address }, (results, status) => {
+            if (status === 'OK') {
+                const location = results[0];
+                const appointment = {
+                    id: Date.now(),
+                    address: location.formatted_address,
+                    lat: location.geometry.location.lat(),
+                    lng: location.geometry.location.lng()
+                };
+
+                appointments.push(appointment);
+                addressInput.value = '';
+                selectedPlace = null;
+                updateAppointmentList();
+                saveAppointments();
+
+                if (appointments.length === 1) {
+                    showSingleAppointment(appointment);
+                }
+            } else {
+                alert('Could not find this address. Please check the address and try again.');
+            }
+        });
+    }
 }
 
 function deleteAppointment(id) {
@@ -101,8 +140,9 @@ function updateAppointmentList() {
         const item = document.createElement('div');
         item.className = 'appointment-item';
         item.draggable = true;
+        const label = index + 1; // 1, 2, 3, 4...
         item.innerHTML = `
-            <div class="appointment-address">${index + 1}. ${appointment.address}</div>
+            <div class="appointment-address">${label}. ${appointment.address}</div>
             <button class="btn btn-danger btn-small" onclick="deleteAppointment(${appointment.id})">Delete</button>
         `;
         
@@ -155,9 +195,54 @@ function showSingleAppointment(appointment) {
             document.getElementById('route-summary').style.display = 'block';
 
             optimizedRoute = result;
-            document.getElementById('google-maps-btn').style.display = 'block';
+            document.getElementById('navigation-buttons').style.display = 'block';
         }
     });
+}
+
+function getRouteOptions() {
+    const routeType = document.getElementById('route-type').value;
+    const baseOptions = {
+        travelMode: google.maps.TravelMode.DRIVING,
+        optimizeWaypoints: true
+    };
+
+    switch (routeType) {
+        case 'shortest':
+            return {
+                ...baseOptions,
+                avoidTolls: true,
+                avoidHighways: false,
+                provideRouteAlternatives: true
+            };
+        case 'fastest':
+            return {
+                ...baseOptions,
+                avoidTolls: false,
+                avoidHighways: false,
+                provideRouteAlternatives: false
+            };
+        case 'avoid-traffic':
+            return {
+                ...baseOptions,
+                avoidTolls: true,
+                avoidHighways: true,
+                provideRouteAlternatives: true
+            };
+        case 'balanced':
+            return {
+                ...baseOptions,
+                avoidTolls: true,
+                avoidHighways: false,
+                provideRouteAlternatives: true
+            };
+        default:
+            return {
+                ...baseOptions,
+                avoidTolls: true,
+                avoidHighways: false
+            };
+    }
 }
 
 function optimizeRoute() {
@@ -165,14 +250,15 @@ function optimizeRoute() {
         alert('Please add some appointments first');
         return;
     }
-    
+
     if (appointments.length === 1) {
         showSingleAppointment(appointments[0]);
         return;
     }
 
     const startCoords = getStartLocation();
-    
+    const routeOptions = getRouteOptions();
+
     const waypoints = appointments.map(apt => ({
         location: new google.maps.LatLng(apt.lat, apt.lng),
         stopover: true
@@ -182,9 +268,7 @@ function optimizeRoute() {
         origin: startCoords,
         destination: startCoords,
         waypoints: waypoints,
-        travelMode: google.maps.TravelMode.DRIVING,
-        avoidTolls: true,
-        optimizeWaypoints: true
+        ...routeOptions
     };
 
     directionsService.route(request, (result, status) => {
@@ -211,7 +295,7 @@ function optimizeRoute() {
             document.getElementById('route-summary').style.display = 'block';
 
             optimizedRoute = result;
-            document.getElementById('google-maps-btn').style.display = 'block';
+            document.getElementById('navigation-buttons').style.display = 'block';
             
             const optimizedOrder = result.routes[0].waypoint_order;
             const reorderedAppointments = optimizedOrder.map(index => appointments[index]);
@@ -258,6 +342,45 @@ function openInGoogleMaps() {
     window.open(url, '_blank');
 }
 
+function openInWaze() {
+    if (!optimizedRoute || appointments.length === 0) {
+        alert('Please optimize a route first');
+        return;
+    }
+
+    if (appointments.length === 1) {
+        const appointment = appointments[0];
+        const wazeUrl = `https://waze.com/ul?ll=${appointment.lat},${appointment.lng}&navigate=yes`;
+        window.open(wazeUrl, '_blank');
+        return;
+    }
+
+    const startCoords = getStartLocation();
+    let currentLat, currentLng;
+
+    if (currentLocation && locationStatus === 'found') {
+        currentLat = currentLocation.lat;
+        currentLng = currentLocation.lng;
+    } else {
+        currentLat = -33.2739;
+        currentLng = 27.0486;
+    }
+
+    const waypoints = optimizedRoute.routes[0].waypoint_order.map(index => appointments[index]);
+
+    if (waypoints.length > 0) {
+        const firstDestination = waypoints[0];
+        const wazeUrl = `https://waze.com/ul?ll=${firstDestination.lat},${firstDestination.lng}&navigate=yes`;
+        window.open(wazeUrl, '_blank');
+
+        if (waypoints.length > 1) {
+            setTimeout(() => {
+                alert(`After reaching ${firstDestination.address}, you have ${waypoints.length - 1} more stops. Open Waze again for the next destination.`);
+            }, 1000);
+        }
+    }
+}
+
 function clearAllAppointments() {
     if (appointments.length === 0) return;
 
@@ -267,7 +390,7 @@ function clearAllAppointments() {
         updateAppointmentList();
         saveAppointments();
         directionsRenderer.setDirections({ routes: [] });
-        document.getElementById('google-maps-btn').style.display = 'none';
+        document.getElementById('navigation-buttons').style.display = 'none';
         document.getElementById('route-summary').style.display = 'none';
     }
 }
